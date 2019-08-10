@@ -1,42 +1,50 @@
-/// This file contains structs and functions for the nodes.
+// This file contains structs and functions for the nodes.
 package go_cluster
 
-// The Message interface, this is supposed to be customized (for example Msg is encoded in gob).
-type Message interface {
-	Msg() string
-	Error() error
-}
-
+// The node is the general data type in go-cluster, it resembles a node in the cluster
 type Node struct {
-	master  bool               // Whether this node is the master
-	id      int                // This node's id
-	message chan<- Message     // The channel to forward messages to
-	nodes   map[int]Connection // A map that maps other node ids to their connections.
+	Master  bool               // Whether this node is the master
+	Id      int                // This node's ID
+	Message chan<- Message     // The channel to forward messages to
+	Nodes   map[int]Connection // A map that maps other node ids to their connections.
 }
 
-// Starts the node, it will connect it to the master.
-// It accepts a channel that will receive a boolean when the node is ready.
-func CreateNode(master bool, ip string) (*Node, error) {
-	if master {
-		return &Node{
-			master:  true,
-			id:      0,
-			message: make(chan Message),
-			nodes:   make(map[int]Connection),
-		}, nil
-	} else {
-		// TODO finish CreateNode
-		return nil, nil
+// Creates a new master node
+// This new node will introduce other nodes to each other.
+func CreateMasterNode(host string, port int) *Node {
+	node := &Node{
+		Master:  true,
+		Id:      0,
+		Message: make(chan Message),
+		Nodes:   make(map[int]Connection),
 	}
+	go handleIncoming(host, string(port), node)
+	return node
 }
 
-func (*Node) Send(message string, ids ...int) error {
-	// TODO finish Send
+// Creates a new node
+// Arguments
+func CreateNode(ip string, port int, mip string, mport int) (*Node, error) {
+	return nil, nil
+}
+
+// Sends a message to a specific amount of nodes
+func (n *Node) Send(message Message, ids ...int) error {
+	for id := range ids {
+		if err := n.Nodes[id].Write(message); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
-func (*Node) Broadcast(message string) error {
-	// TODO finish Broadcast
+// Sends a message to all nodes
+func (n *Node) Broadcast(message Message) error {
+	for _, conn := range n.Nodes {
+		if err := conn.Write(message); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
