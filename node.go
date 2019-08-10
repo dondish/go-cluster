@@ -1,6 +1,8 @@
 // This file contains structs and functions for the nodes.
 package go_cluster
 
+import "errors"
+
 // The node is the general data type in go-cluster, it resembles a node in the cluster
 type Node struct {
 	Master  bool               // Whether this node is the master
@@ -22,10 +24,24 @@ func CreateMasterNode(host string, port int) *Node {
 	return node
 }
 
-// Creates a new node
-// Arguments
+// Creates a new node and connects to the master
+// TODO add id retrieval via a handshake
+// TODO add automatic peer discovery
 func CreateNode(ip string, port int, mip string, mport int) (*Node, error) {
-	return nil, nil
+	node := &Node{
+		Id:      1,
+		Message: make(chan Message),
+		Nodes:   make(map[int]Connection),
+	}
+	// TODO add id
+	if conn, err := connect(ip, port, mip, mport); err == nil && conn != nil {
+		node.Nodes[0] = *conn
+	} else if err != nil {
+		return nil, err
+	} else if conn == nil {
+		return nil, errors.New("connection cannot be nil, unexpected error occurred")
+	}
+	return node, nil
 }
 
 // Sends a message to a specific amount of nodes

@@ -14,8 +14,8 @@ type Connection struct {
 }
 
 // Creates a new connection
-func connect(ip string, port int) (*Connection, error) {
-	if conn, err := net.DialTCP("tcp", &net.TCPAddr{IP: []byte(ip), Port: port}, nil); err != nil {
+func connect(ip string, port int, rip string, rport int) (*Connection, error) {
+	if conn, err := net.DialTCP("tcp", &net.TCPAddr{IP: []byte(ip), Port: port}, &net.TCPAddr{IP: []byte(rip), Port: rport}); err != nil {
 		return nil, err
 	} else {
 		return &Connection{Conn: conn}, nil
@@ -39,6 +39,7 @@ func handleIncoming(host string, port string, node *Node) {
 			fmt.Println("Couldn't accept the connection from ", conn.RemoteAddr().String(), ":", err.Error())
 		}
 		go handleMessages(conn, node)
+		// TODO introduce new connections to other peers
 	}
 }
 
