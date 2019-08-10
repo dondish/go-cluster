@@ -14,8 +14,13 @@ type Connection struct {
 }
 
 // Creates a new connection
-func connect(ip string, port int, rip string, rport int) (*Connection, error) {
-	if conn, err := net.DialTCP("tcp", &net.TCPAddr{IP: []byte(ip), Port: port}, &net.TCPAddr{IP: []byte(rip), Port: rport}); err != nil {
+func connect(laddress, raddress string) (*Connection, error) {
+	laddr, err := net.ResolveTCPAddr("tcp", laddress)
+	raddr, err := net.ResolveTCPAddr("tcp", raddress)
+	if err != nil {
+		return nil, err
+	}
+	if conn, err := net.DialTCP("tcp", laddr, raddr); err != nil {
 		return nil, err
 	} else {
 		return &Connection{Conn: conn}, nil
@@ -24,28 +29,34 @@ func connect(ip string, port int, rip string, rport int) (*Connection, error) {
 
 // Handles incoming connections
 // This should be ran concurrently in a Go routine
-func handleIncoming(host string, port string, node *Node) {
-	addr := host + ":" + port
-	l, err := net.Listen("tcp", addr)
+func handleIncoming(address string, node *Node) {
+	l, err := net.Listen("tcp", address)
 	if err != nil {
 		fmt.Println("Error listening for incoming connections:", err.Error())
 		os.Exit(1)
 	}
 	defer l.Close()
-	fmt.Println("Listening for incoming connections:", addr)
+	fmt.Println("Listening for incoming connections:", address)
 	for {
+		if !node.Ready {
+			return
+		}
 		conn, err := l.Accept()
 		if err != nil {
-			fmt.Println("Couldn't accept the connection from ", conn.RemoteAddr().String(), ":", err.Error())
+			fmt.Println("Couldn't accept the connection:", err.Error())
 		}
 		go handleMessages(conn, node)
 		// TODO introduce new connections to other peers
+		// TODO add node id discovery and add to the Nodes map
 	}
 }
 
 // Handles the messages incoming from the connection
 func handleMessages(conn net.Conn, node *Node) {
 	for {
+		if !node.Ready {
+			return
+		}
 		var data Message
 		err := gob.NewDecoder(conn).Decode(data)
 		if err != nil {
