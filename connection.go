@@ -78,15 +78,21 @@ func handleMessages(conn net.Conn, node *Node) {
 	for node.Ready {
 		data := new(Transport)
 		err := dec.Decode(data)
-		if err == io.EOF {
-			fmt.Println("connection closed: ", conn.LocalAddr().String(), "<->", conn.RemoteAddr().String())
-			if !node.Master {
-				os.Exit(0)
+		if err != nil {
+			switch err.(type) {
+			case *net.OpError:
+				// network error connection should be closed
+				fmt.Println("connection closed: ", conn.LocalAddr().String(), "->", conn.RemoteAddr().String())
+				break
+			default:
+				if err == io.EOF {
+					fmt.Println("connection closed: ", conn.LocalAddr().String(), "->", conn.RemoteAddr().String())
+					break
+				}
+				fmt.Println("an error has occured while reading, ", err)
+				message := ErrorMessage{Err: err}
+				node.Message <- message
 			}
-		} else if err != nil {
-			fmt.Println("err", err)
-			message := ErrorMessage{Err: err}
-			node.Message <- message
 		} else {
 			node.Message <- data.Message
 		}

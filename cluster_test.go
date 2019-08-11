@@ -58,7 +58,6 @@ func TestCreateNode(t *testing.T) {
 		assert.Nil(t, err, "There shouldn't be an error sending the test message")
 	}()
 	c := <-master.Message
-	fmt.Println("c", c.Msg())
 	assert.Equal(t, c.Msg(), "testing", "the message should be equal to testing")
 	assert.Equal(t, c.Type(), "test", "the type should be equal to test")
 }
