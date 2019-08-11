@@ -63,7 +63,10 @@ func CreateNode(address, maddress string) (*Node, error) {
 
 // Sends a message to a specific amount of nodes
 func (n Node) Send(message Message, ids ...int) error {
-	for id := range ids {
+	for _, id := range ids {
+		if n.Nodes[id] == nil {
+			return errors.New(fmt.Sprintf("Node with id: %d has not been found.", id))
+		}
 		if err := n.Nodes[id].Write(message); err != nil {
 			return err
 		}
@@ -84,12 +87,13 @@ func (n Node) Broadcast(message Message) error {
 // Shuts down the node, if the node is the master it will broadcast the new master to all nodes before closing.
 // It accepts a channel that will receive a boolean when the node is shutdown.
 func (n *Node) Close() error {
-	n.Ready = false
 	// TODO new master broadcast
+	fmt.Println("Shutting down node ", n.Id)
 	for _, conn := range n.Nodes {
 		if err := conn.Close(); err != nil {
 			return err
 		}
 	}
+	n.Ready = false
 	return nil
 }

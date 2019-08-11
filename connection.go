@@ -69,27 +69,27 @@ func handleIncoming(address string, node *Node) {
 		node.NextId++
 		// TODO introduce new connections to other peers
 	}
-	fmt.Println("Master shut down @", l.Addr().String())
 }
 
 // Handles the messages incoming from the connection
 func handleMessages(conn net.Conn, node *Node, remoteid int) {
 	dec := gob.NewDecoder(conn)
-	for node.Ready {
+	for {
 		data := new(Transport)
 		err := dec.Decode(data)
 		if err != nil {
 			switch err.(type) {
 			case *net.OpError:
 				// network error connection should be closed
-				fmt.Println("connection closed: ", conn.LocalAddr().String(), "->", conn.RemoteAddr().String())
-				break
+				fmt.Println("Message handling stopped ", conn.LocalAddr().String(), "<->", conn.RemoteAddr().String())
+				delete(node.Nodes, remoteid)
+				return
 			default:
-				if err == io.EOF {
-					fmt.Println("connection closed: ", conn.LocalAddr().String(), "->", conn.RemoteAddr().String())
-					break
+				if err == io.EOF { // on EOF reset the decoder
+					dec = gob.NewDecoder(conn)
+					continue
 				}
-				fmt.Println("an error has occured while reading, ", err)
+				fmt.Println("an error has occurred while reading, ", err)
 				message := ErrorMessage{Err: err}
 				node.Message <- message
 			}
@@ -97,11 +97,7 @@ func handleMessages(conn net.Conn, node *Node, remoteid int) {
 			node.Message <- data.Message
 		}
 	}
-	fmt.Println("Message handling stopped ", conn.LocalAddr().String(), "<->", conn.RemoteAddr().String())
-	delete(node.Nodes, remoteid)
-	if !node.Master && len(node.Nodes) == 0 {
-		node.Ready = false
-	}
+
 }
 
 // Write a message to the connection
