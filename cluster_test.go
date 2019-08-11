@@ -20,7 +20,10 @@ func (t TestMessage) Type() string {
 
 func TestCreateMasterNode(t *testing.T) {
 	master := CreateMasterNode("localhost:5555")
-	defer master.Close()
+	defer func() {
+		err := master.Close()
+		assert.Nil(t, err, "There shouldn't be an error while closing the master")
+	}()
 
 	assert.Empty(t, master.Nodes, "the master should not be connected to other nodes implicitly")
 	assert.NotNil(t, master.Message, "the message channel should not be nil")
@@ -30,25 +33,38 @@ func TestCreateMasterNode(t *testing.T) {
 
 func TestCreateNode(t *testing.T) {
 	master := CreateMasterNode("localhost:5556")
-	defer master.Close()
+	defer func() {
+		err := master.Close()
+		assert.Nil(t, err, "There shouldn't be an error while closing the master")
+	}()
 	node, err := CreateNode("localhost:5557", "localhost:5556")
-	defer node.Close()
+
 	if err != nil {
 		fmt.Println("couldn't create node:", err)
-		t.Fail()
+		assert.NotNil(t, err, "There shouldn't be an error while closing the slave")
 	}
+
+	defer func() {
+		err := node.Close()
+		assert.Nil(t, err, "There shouldn't be an error while closing the slave")
+	}()
 
 	assert.Contains(t, node.Nodes, 0, "the node should have master in its nodes map")
 	assert.True(t, node.Id == 1, "the node's id should be set to 1")
 	assert.NotNil(t, master.Message, "the message channel should not be nil")
 
 	go func() {
-		if err := node.Send(TestMessage{Test: "testing"}, 0); err != nil {
-			t.Fail()
-		}
+		err := node.Send(TestMessage{Test: "testing"}, 0)
+		assert.Nil(t, err, "There shouldn't be an error sending the test message")
 	}()
 	c := <-master.Message
-	fmt.Println(c.Msg())
-	assert.Equal(t, c.Msg(), "teasting", "the message should be equal to testing")
+	fmt.Println("c", c.Msg())
+	assert.Equal(t, c.Msg(), "testing", "the message should be equal to testing")
 	assert.Equal(t, c.Type(), "test", "the type should be equal to test")
+}
+
+func TestMain(m *testing.M) {
+	Init()
+	RegisterMessage(TestMessage{})
+	m.Run()
 }
