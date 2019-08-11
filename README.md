@@ -1,7 +1,12 @@
-# Go Cluster
+# Go Cluster [![Build Status](https://travis-ci.com/dondish/go-cluster.svg?branch=master)](https://travis-ci.com/dondish/go-cluster)
 P2P, Master-Slave model of clustering for Go.
 
 This project aims to be minimal, performance and code size wise.
+
+# Note
+The package uses gob for encoding messages, before using the library register all of the message types to gob.
+
+More on that [gob docs Register method](https://golang.org/pkg/encoding/gob/#Register)
 
 # Why?
 Go has a great concurrency model that makes the language be frequently used for RPC.
