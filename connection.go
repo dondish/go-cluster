@@ -59,7 +59,7 @@ func handleIncoming(address string, node *Node) {
 			continue
 		}
 		fmt.Println("Connected to a slave!", conn.RemoteAddr().String())
-		go handleMessages(conn, node)
+		go handleMessages(conn, node, node.NextId)
 		connection := &Connection{Conn: conn}
 		if err := connection.Write(ReadyMessage{Id: node.NextId}); err != nil {
 			fmt.Println("failed to send ready message to ", conn.RemoteAddr().String(), ":", err.Error())
@@ -73,7 +73,7 @@ func handleIncoming(address string, node *Node) {
 }
 
 // Handles the messages incoming from the connection
-func handleMessages(conn net.Conn, node *Node) {
+func handleMessages(conn net.Conn, node *Node, remoteid int) {
 	dec := gob.NewDecoder(conn)
 	for node.Ready {
 		data := new(Transport)
@@ -97,7 +97,11 @@ func handleMessages(conn net.Conn, node *Node) {
 			node.Message <- data.Message
 		}
 	}
-	fmt.Println("Message handling stopped @", conn.LocalAddr().String())
+	fmt.Println("Message handling stopped ", conn.LocalAddr().String(), "<->", conn.RemoteAddr().String())
+	delete(node.Nodes, remoteid)
+	if !node.Master && len(node.Nodes) == 0 {
+		node.Ready = false
+	}
 }
 
 // Write a message to the connection

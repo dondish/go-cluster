@@ -53,7 +53,7 @@ func CreateNode(address, maddress string) (*Node, error) {
 		return nil, errors.New("connection cannot be nil, unexpected error occurred")
 	} else {
 		node.Nodes[0] = conn
-		go handleMessages(conn.Conn, node)
+		go handleMessages(conn.Conn, node, 0)
 		readymsg := <-node.Message
 		node.Id = readymsg.(ReadyMessage).Id
 		fmt.Println("Node Intialized! Id:", node.Id, "Address:", address)
@@ -85,7 +85,6 @@ func (n Node) Broadcast(message Message) error {
 // It accepts a channel that will receive a boolean when the node is shutdown.
 func (n *Node) Close() error {
 	n.Ready = false
-	close(n.Message)
 	// TODO new master broadcast
 	for _, conn := range n.Nodes {
 		if err := conn.Close(); err != nil {
