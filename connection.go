@@ -95,6 +95,7 @@ func handleMessages(conn net.Conn, node *Node, remoteid int) {
 			}
 		} else {
 			node.Message <- data.Message
+			dec = gob.NewDecoder(conn) // prevent old data from staying in the buffer
 		}
 	}
 

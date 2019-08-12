@@ -60,8 +60,8 @@ func TestCreateNode(t *testing.T) {
 	}()
 	select {
 	case c := <-master.Message:
-		assert.Equal(t, c.Msg(), "testing", "the message should be equal to testing")
-		assert.Equal(t, c.Type(), "test", "the type should be equal to test")
+		assert.Equal(t, "testing", c.Msg(), "the message should be equal to testing")
+		assert.Equal(t, "test", c.Type(), "the type should be equal to test")
 	case <-time.After(time.Second):
 		t.Log("The test has timed out")
 	}
@@ -72,8 +72,8 @@ func TestCreateNode(t *testing.T) {
 	}()
 	select {
 	case c := <-node.Message:
-		assert.Equal(t, c.Msg(), "testing", "the message should be equal to testing")
-		assert.Equal(t, c.Type(), "test", "the type should be equal to test")
+		assert.Equal(t, "testing", c.Msg(), "the message should be equal to testing")
+		assert.Equal(t, "test", c.Type(), "the type should be equal to test")
 	case <-time.After(time.Second):
 		t.Log("The test has timed out")
 	}
