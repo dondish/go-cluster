@@ -5,16 +5,17 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"sync"
 )
 
 // The node is the general data type in go-cluster, it resembles a node in the cluster
 type Node struct {
-	Ready   bool                // Whether is node is ready for connections
-	Master  bool                // Whether this node is the master
-	Id      int                 // This node's ID
-	NextId  int                 // (Master Only) Next client's id
-	Message chan Message        // The channel to forward messages to
-	Nodes   map[int]*Connection // A map that maps other node ids to their connections.
+	Ready   bool         // Whether is node is ready for connections
+	Master  bool         // Whether this node is the master
+	Id      int          // This node's ID
+	NextId  int          // (Master Only) Next client's id
+	Message chan Message // The channel to forward messages to
+	Nodes   *sync.Map    // A map that maps other node ids to their connections.
 }
 
 func Init() {
@@ -30,7 +31,7 @@ func CreateMasterNode(address string) *Node {
 		Master:  true,
 		NextId:  1,
 		Message: make(chan Message),
-		Nodes:   make(map[int]*Connection),
+		Nodes:   new(sync.Map),
 	}
 	go handleIncoming(address, node)
 	return node
@@ -44,19 +45,20 @@ func CreateNode(address, maddress string) (*Node, error) {
 		Ready:   true,
 		Id:      1,
 		Message: make(chan Message),
-		Nodes:   make(map[int]*Connection),
+		Nodes:   new(sync.Map),
 	}
 	// TODO add id
-	if conn, err := connect(address, maddress); err != nil {
+	if conn, err := connect(maddress); err != nil {
 		return nil, err
 	} else if conn == nil {
 		return nil, errors.New("connection cannot be nil, unexpected error occurred")
 	} else {
-		node.Nodes[0] = conn
-		go handleMessages(conn.Conn, node, 0)
+		node.Nodes.Store(0, conn)
+		go handleMessages(conn, node, 0)
 		readymsg := <-node.Message
 		node.Id = readymsg.(ReadyMessage).Id
 		fmt.Println("Node Intialized! Id:", node.Id, "Address:", address)
+		go handleIncoming(address, node)
 		return node, nil
 	}
 }
@@ -64,24 +66,26 @@ func CreateNode(address, maddress string) (*Node, error) {
 // Sends a message to a specific amount of nodes
 func (n Node) Send(message Message, ids ...int) error {
 	for _, id := range ids {
-		if n.Nodes[id] == nil {
+		if a, ok := n.Nodes.Load(id); !ok {
 			return errors.New(fmt.Sprintf("Node with id: %d has not been found.", id))
-		}
-		if err := n.Nodes[id].Write(message); err != nil {
+		} else if err := a.(*Connection).Write(message); err != nil {
 			return err
 		}
+
 	}
 	return nil
 }
 
 // Sends a message to all nodes
 func (n Node) Broadcast(message Message) error {
-	for _, conn := range n.Nodes {
-		if err := conn.Write(message); err != nil {
-			return err
+	var err error = nil
+	n.Nodes.Range(func(id, conn interface{}) bool {
+		if err = conn.(*Connection).Write(message); err != nil {
+			return false
 		}
-	}
-	return nil
+		return true
+	})
+	return err
 }
 
 // Shuts down the node, if the node is the master it will broadcast the new master to all nodes before closing.
@@ -89,11 +93,13 @@ func (n Node) Broadcast(message Message) error {
 func (n *Node) Close() error {
 	// TODO new master broadcast
 	fmt.Println("Shutting down node ", n.Id)
-	for _, conn := range n.Nodes {
-		if err := conn.Close(); err != nil {
-			return err
+	var err error = nil
+	n.Nodes.Range(func(id, conn interface{}) bool {
+		if err = conn.(*Connection).Close(); err != nil {
+			return false
 		}
-	}
+		return true
+	})
 	n.Ready = false
-	return nil
+	return err
 }

@@ -49,8 +49,8 @@ func TestCreateNode(t *testing.T) {
 		err := node.Close()
 		assert.Nil(t, err, "There shouldn't be an error while closing the slave")
 	}()
-
-	assert.Contains(t, node.Nodes, 0, "the node should have master in its nodes map")
+	_, ok := node.Nodes.Load(0)
+	assert.True(t, ok, 0, "the node should have master in its nodes map")
 	assert.True(t, node.Id == 1, "the node's id should be set to 1")
 	assert.NotNil(t, master.Message, "the message channel should not be nil")
 

@@ -37,6 +37,25 @@ func (m ReadyMessage) Type() string {
 	return "ready"
 }
 
+// The message a node sends to the node it's newly connected to with its id to make authentication easier
+type IdReqMessage struct {
+	Id int
+}
+
+func (m IdReqMessage) Msg() interface{} {
+	return strconv.Itoa(m.Id)
+}
+
+func (m IdReqMessage) Type() string {
+	return "idreq"
+}
+
+// The message the master sends when all nodes when a new node joins
+type NewNodeMessage struct {
+	Id int
+}
+
+// Register the message type to gob
 func RegisterMessage(msg Message) {
 	gob.Register(msg)
 }
