@@ -80,6 +80,43 @@ func TestCreateNode(t *testing.T) {
 
 }
 
+func TestMultiNode(t *testing.T) {
+	master := CreateMasterNode("localhost:5558")
+	defer func() {
+		err := master.Close()
+		assert.Nil(t, err, "There shouldn't be an error while closing the master")
+	}()
+	node1, err := CreateNode("localhost:5559", "localhost:5558")
+
+	if err != nil {
+		fmt.Println("couldn't create node 1:", err)
+		assert.NotNil(t, err, "There shouldn't be an error while closing the slave")
+	}
+
+	defer func() {
+		err := node1.Close()
+		assert.Nil(t, err, "There shouldn't be an error while closing the slave")
+	}()
+	time.Sleep(time.Second)
+	node2, err := CreateNode("localhost:5560", "localhost:5558")
+
+	if err != nil {
+		fmt.Println("couldn't create node 2:", err)
+		assert.NotNil(t, err, "There shouldn't be an error while closing the slave")
+	}
+
+	defer func() {
+		err := node2.Close()
+		assert.Nil(t, err, "There shouldn't be an error while closing the slave")
+	}()
+
+	time.Sleep(time.Second * 2) // Wait until the nodes greet each other
+	_, ok := node1.Nodes.Load(2)
+	assert.True(t, ok, "Node 2 is supposed to be connected to node 1")
+	_, ok = node2.Nodes.Load(1)
+	assert.True(t, ok, "Node 1 is supposed to be connected to node 2")
+}
+
 func TestMain(m *testing.M) {
 	Init()
 	RegisterMessage(TestMessage{})

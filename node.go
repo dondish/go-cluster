@@ -5,6 +5,7 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"log"
 	"sync"
 )
 
@@ -21,6 +22,9 @@ type Node struct {
 func Init() {
 	gob.Register(ReadyMessage{})
 	gob.Register(ErrorMessage{})
+	gob.Register(IdReqMessage{})
+	gob.Register(NewNodeMessage{})
+	gob.Register(AddressMessage{})
 }
 
 // Creates a new master node
@@ -57,10 +61,17 @@ func CreateNode(address, maddress string) (*Node, error) {
 		go handleMessages(conn, node, 0)
 		readymsg := <-node.Message
 		node.Id = readymsg.(ReadyMessage).Id
-		fmt.Println("Node Intialized! Id:", node.Id, "Address:", address)
+		log.Println("Node Intialized! Id:", node.Id, "Address:", address)
 		go handleIncoming(address, node)
+		if err := node.Send(AddressMessage{Addr: address}, 0); err != nil {
+			return nil, err
+		}
 		return node, nil
 	}
+}
+
+func (n Node) Log(args ...interface{}) {
+	log.Printf("Node %d: %s", n.Id, fmt.Sprintln(args...))
 }
 
 // Sends a message to a specific amount of nodes
@@ -77,9 +88,14 @@ func (n Node) Send(message Message, ids ...int) error {
 }
 
 // Sends a message to all nodes
-func (n Node) Broadcast(message Message) error {
+func (n Node) Broadcast(message Message, except ...int) error {
 	var err error = nil
 	n.Nodes.Range(func(id, conn interface{}) bool {
+		for _, exception := range except {
+			if exception == id {
+				return true
+			}
+		}
 		if err = conn.(*Connection).Write(message); err != nil {
 			return false
 		}
@@ -92,7 +108,7 @@ func (n Node) Broadcast(message Message) error {
 // It accepts a channel that will receive a boolean when the node is shutdown.
 func (n *Node) Close() error {
 	// TODO new master broadcast
-	fmt.Println("Shutting down node ", n.Id)
+	n.Log("Shutting down...")
 	var err error = nil
 	n.Nodes.Range(func(id, conn interface{}) bool {
 		if err = conn.(*Connection).Close(); err != nil {

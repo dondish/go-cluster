@@ -52,7 +52,29 @@ func (m IdReqMessage) Type() string {
 
 // The message the master sends when all nodes when a new node joins
 type NewNodeMessage struct {
-	Id int
+	Id   int    // The Id
+	Addr string // The address to connect to
+}
+
+func (m NewNodeMessage) Msg() interface{} {
+	return m
+}
+
+func (m NewNodeMessage) Type() string {
+	return "newnode"
+}
+
+// The message a new node sends to the master with the incoming connections address
+type AddressMessage struct {
+	Addr string
+}
+
+func (m AddressMessage) Msg() interface{} {
+	return m.Addr
+}
+
+func (m AddressMessage) Type() string {
+	return "addrreq"
 }
 
 // Register the message type to gob

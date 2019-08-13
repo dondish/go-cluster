@@ -2,7 +2,6 @@ package go_cluster
 
 import (
 	"encoding/gob"
-	"fmt"
 	"io"
 	"net"
 	"os"
@@ -32,42 +31,54 @@ func connect(address string) (*Connection, error) {
 	}
 }
 
+// Connects a node to a new node and sets up message handling
+func connectNewNode(id int, addr string, node *Node) {
+	if conn, err := connect(addr); err != nil {
+		node.Log("error while connecting to a new node:", err)
+	} else {
+		node.Nodes.Store(id, conn)
+		msg := IdReqMessage{Id: node.Id}
+		if err := conn.Write(msg); err != nil {
+			node.Log("couldn't send the message to the new node:", err)
+		}
+		node.Log("Successfully connected to the new node!")
+	}
+}
+
 // Handles incoming connections
 // This should be ran concurrently in a Go routine
 func handleIncoming(address string, node *Node) {
 	addr, err := net.ResolveTCPAddr("tcp", address)
 	if err != nil {
-		fmt.Println("couldn't resolve address:", err)
+		node.Log("couldn't resolve address:", err)
 		os.Exit(1)
 	}
 	l, err := net.ListenTCP("tcp", addr)
 	if err != nil {
-		fmt.Println("Error listening for incoming connections:", err.Error())
+		node.Log("Error listening for incoming connections:", err.Error())
 		os.Exit(1)
 	}
 	defer l.Close()
-	fmt.Println("Listening for incoming connections:", address)
+	node.Log("Listening for incoming connections:", address)
 	for node.Ready {
 		conn, err := l.AcceptTCP()
 		if err != nil {
-			fmt.Println("Couldn't accept the connection:", err.Error())
+			node.Log("Couldn't accept the connection:", err.Error())
 			continue
 		}
 		if conn == nil {
-			fmt.Println("conn is nil")
 			continue
 		}
 		connection := &Connection{Conn: conn}
 		go handleMessages(connection, node, node.NextId)
 		if node.Master {
 			if err := connection.Write(ReadyMessage{Id: node.NextId}); err != nil {
-				fmt.Println("failed to send ready message to ", conn.RemoteAddr().String(), ":", err.Error())
+				node.Log("failed to send ready message to ", conn.RemoteAddr().String(), ":", err.Error())
 				continue
 			}
 			node.Nodes.Store(node.NextId, connection)
 			node.NextId++
 		}
-		// TODO introduce new connections to other peers
 	}
 }
 
@@ -82,7 +93,7 @@ func handleMessages(connection *Connection, node *Node, remoteid int) {
 			switch err.(type) {
 			case *net.OpError:
 				// network error connection should be closed
-				fmt.Println("Message handling stopped", node.Id, "<->", remoteid)
+				node.Log("Message handling stopped with", remoteid)
 				node.Nodes.Delete(remoteid)
 				return
 			default:
@@ -90,20 +101,33 @@ func handleMessages(connection *Connection, node *Node, remoteid int) {
 					dec = gob.NewDecoder(conn)
 					continue
 				}
-				fmt.Println("an error has occurred while reading, ", err)
+				node.Log("an error has occurred while reading,", err)
 				message := ErrorMessage{Err: err}
 				node.Message <- message
 			}
 		} else {
 			if data.Type == "idreq" {
-				node.Nodes.Store(data.Message.(IdReqMessage).Id, connection)
-				continue
+				remoteid = data.Message.(IdReqMessage).Id
+				node.Log("Successfully connected to node", remoteid)
+				node.Nodes.Store(remoteid, connection)
+			} else if data.Type == "addrreq" {
+				msg := NewNodeMessage{
+					Id:   remoteid,
+					Addr: data.Message.(AddressMessage).Addr,
+				}
+				if err := node.Broadcast(msg, remoteid); err != nil {
+					node.Log("error while broadcasting a new node:", err)
+				}
+			} else if data.Type == "newnode" {
+				node.Log("Got a new node joining!")
+				msg := data.Message.(NewNodeMessage)
+				connectNewNode(msg.Id, msg.Addr, node)
+			} else {
+				node.Message <- data.Message
 			}
-			node.Message <- data.Message
 			dec = gob.NewDecoder(conn) // prevent old data from staying in the buffer
 		}
 	}
-
 }
 
 // Write a message to the connection
