@@ -19,37 +19,27 @@ func (t TestMessage) Type() string {
 	return "test"
 }
 
-func TestCreateMasterNode(t *testing.T) {
-	master := CreateMasterNode("localhost:5555")
-	defer func() {
-		err := master.Close()
-		assert.Nil(t, err, "There shouldn't be an error while closing the master")
-	}()
+func TestCreateSingleNodeCluster(t *testing.T) {
+	master := CreateCluster("localhost:5555")
+	defer master.Close()
 
-	assert.Empty(t, master.Nodes, "the master should not be connected to other nodes implicitly")
+	assert.Empty(t, master.Nodes, "the node should not be connected to other nodes implicitly")
 	assert.NotNil(t, master.Message, "the message channel should not be nil")
-	assert.True(t, master.Id == 0, "the master id should be 0")
-	assert.True(t, master.Master, "the Master boolean should be true")
+	assert.True(t, master.Id == 0, "the node id should be 0")
 }
 
-func TestCreateNode(t *testing.T) {
-	master := CreateMasterNode("localhost:5556")
-	defer func() {
-		err := master.Close()
-		assert.Nil(t, err, "There shouldn't be an error while closing the master")
-	}()
+func TestCreateTwoNodeCluster(t *testing.T) {
+	master := CreateCluster("localhost:5556")
+	defer master.Close()
 	time.Sleep(500 * time.Millisecond)
-	node, err := CreateNode("localhost:5557", "localhost:5556")
+	node, err := JoinCluster("localhost:5557", "localhost:5556")
 
 	if err != nil {
 		fmt.Println("couldn't create node:", err)
 		assert.NotNil(t, err, "There shouldn't be an error while closing the slave")
 	}
 
-	defer func() {
-		err := node.Close()
-		assert.Nil(t, err, "There shouldn't be an error while closing the slave")
-	}()
+	defer node.Close()
 	_, ok := node.Nodes.Load(0)
 	assert.True(t, ok, 0, "the node should have master in its nodes map")
 	assert.True(t, node.Id == 1, "the node's id should be set to 1")
@@ -81,36 +71,27 @@ func TestCreateNode(t *testing.T) {
 
 }
 
-func TestMultiNode(t *testing.T) {
-	master := CreateMasterNode("localhost:5558")
-	defer func() {
-		err := master.Close()
-		assert.Nil(t, err, "There shouldn't be an error while closing the master")
-	}()
+func TestCreateMultiNodeCluster(t *testing.T) {
+	master := CreateCluster("localhost:5558")
+	defer master.Close()
 	time.Sleep(500 * time.Millisecond)
-	node1, err := CreateNode("localhost:5559", "localhost:5558")
+	node1, err := JoinCluster("localhost:5559", "localhost:5558")
 
 	if err != nil {
 		fmt.Println("couldn't create node 1:", err)
 		assert.NotNil(t, err, "There shouldn't be an error while closing the slave")
 	}
 
-	defer func() {
-		err := node1.Close()
-		assert.Nil(t, err, "There shouldn't be an error while closing the slave")
-	}()
+	defer node1.Close()
 	time.Sleep(500 * time.Millisecond)
-	node2, err := CreateNode("localhost:5560", "localhost:5558")
+	node2, err := JoinCluster("localhost:5560", "localhost:5558")
 
 	if err != nil {
 		fmt.Println("couldn't create node 2:", err)
 		assert.NotNil(t, err, "There shouldn't be an error while closing the slave")
 	}
 
-	defer func() {
-		err := node2.Close()
-		assert.Nil(t, err, "There shouldn't be an error while closing the slave")
-	}()
+	defer node2.Close()
 
 	time.Sleep(time.Second * 2) // Wait until the nodes greet each other
 	_, ok := node1.Nodes.Load(2)

@@ -1,5 +1,5 @@
 # Go Cluster [![Build Status](https://travis-ci.com/dondish/go-cluster.svg?branch=master)](https://travis-ci.com/dondish/go-cluster)
-P2P, Master-Slave model of clustering for Go.
+P2P model of clustering for Go.
 
 This project aims to be minimal, performance and code size wise.
 
@@ -16,10 +16,11 @@ The purpose of this project is to provide a simple and efficient solution to clu
 # How?
 Peer to peer connectivity, using a custom protocol over TCP. TCP was chosen because of it's reliability.
 
-The model itself is a master-slave model, this lets the connection be distributed faster and easier.
-The master introduces new nodes to all of the other nodes. Each node is identified with a custom ID, 
+The model itself isn't a master-slave model, this lets the every node to be independent on each other.
+Each node can introduce new nodes to all of the other nodes. Each node is identified with a custom ID, 
 so nodes can communicate with each other as well.
 
-## What happens when the master crashes?
-The custom ID is given by the master and it's the number of nodes that have joined before the new node. 
-This means the successor of the master is the successor in ID.
+# Features
+* Resilent - Every node is independent of other nodes so when a node crashes nothing happens.
+* Fast - The package uses the gob encoding which is very fast and efficient
+* Customizable - The Message interface is supposed to be customizable, send every type of message you'd like over the cluster.

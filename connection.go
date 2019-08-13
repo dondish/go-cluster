@@ -71,14 +71,12 @@ func handleIncoming(address string, node *Node) {
 		}
 		connection := &Connection{Conn: conn}
 		go handleMessages(connection, node, node.NextId)
-		if node.Master {
-			if err := connection.Write(ReadyMessage{Id: node.NextId}); err != nil {
-				node.Log("failed to send ready message to ", conn.RemoteAddr().String(), ":", err.Error())
-				continue
-			}
-			node.Nodes.Store(node.NextId, connection)
-			node.NextId++
+		if err := connection.Write(ReadyMessage{Id: node.NextId}); err != nil {
+			node.Log("failed to send ready message to ", conn.RemoteAddr().String(), ":", err.Error())
+			continue
 		}
+		node.Nodes.Store(node.NextId, connection)
+		node.NextId++
 	}
 }
 
@@ -119,8 +117,8 @@ func handleMessages(connection *Connection, node *Node, remoteid int) {
 					node.Log("error while broadcasting a new node:", err)
 				}
 			} else if data.Type == "newnode" {
-				node.Log("Got a new node joining!")
 				msg := data.Message.(NewNodeMessage)
+				node.NextId = msg.Id + 1
 				connectNewNode(msg.Id, msg.Addr, node)
 			} else {
 				node.Message <- data.Message
