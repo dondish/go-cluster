@@ -38,6 +38,7 @@ func TestCreateNode(t *testing.T) {
 		err := master.Close()
 		assert.Nil(t, err, "There shouldn't be an error while closing the master")
 	}()
+	time.Sleep(500 * time.Millisecond)
 	node, err := CreateNode("localhost:5557", "localhost:5556")
 
 	if err != nil {
@@ -86,6 +87,7 @@ func TestMultiNode(t *testing.T) {
 		err := master.Close()
 		assert.Nil(t, err, "There shouldn't be an error while closing the master")
 	}()
+	time.Sleep(500 * time.Millisecond)
 	node1, err := CreateNode("localhost:5559", "localhost:5558")
 
 	if err != nil {
@@ -97,7 +99,7 @@ func TestMultiNode(t *testing.T) {
 		err := node1.Close()
 		assert.Nil(t, err, "There shouldn't be an error while closing the slave")
 	}()
-	time.Sleep(time.Second)
+	time.Sleep(500 * time.Millisecond)
 	node2, err := CreateNode("localhost:5560", "localhost:5558")
 
 	if err != nil {
