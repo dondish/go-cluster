@@ -21,6 +21,6 @@ Each node can introduce new nodes to all of the other nodes. Each node is identi
 so nodes can communicate with each other as well.
 
 # Features
-* Resilent - Every node is independent of other nodes so when a node crashes nothing happens.
+* Resilent - Every node is independent of other nodes so when a node crashes the cluster is still stable.
 * Fast - The package uses the gob encoding which is very fast and efficient
-* Customizable - The Message interface is supposed to be customizable, send every type of message you'd like over the cluster.
+* Customizable - The Message interface is supposed to be customizable, send any type of message you'd like over the cluster.
