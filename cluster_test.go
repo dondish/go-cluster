@@ -20,7 +20,7 @@ func (t TestMessage) Type() string {
 }
 
 func TestCreateSingleNodeCluster(t *testing.T) {
-	master := CreateCluster("localhost:5555")
+	master := CreateCluster("localhost:5555", nil)
 	defer master.Close()
 
 	assert.Empty(t, master.Nodes, "the node should not be connected to other nodes implicitly")
@@ -29,10 +29,10 @@ func TestCreateSingleNodeCluster(t *testing.T) {
 }
 
 func TestCreateTwoNodeCluster(t *testing.T) {
-	master := CreateCluster("localhost:5556")
+	master := CreateCluster("localhost:5556", nil)
 	defer master.Close()
 	time.Sleep(500 * time.Millisecond)
-	node, err := JoinCluster("localhost:5557", "localhost:5556")
+	node, err := JoinCluster("localhost:5557", "localhost:5556", nil)
 
 	if err != nil {
 		fmt.Println("couldn't create node:", err)
@@ -40,8 +40,9 @@ func TestCreateTwoNodeCluster(t *testing.T) {
 	}
 
 	defer node.Close()
+	time.Sleep(500 * time.Millisecond)
 	_, ok := node.Nodes.Load(0)
-	assert.True(t, ok, 0, "the node should have master in its nodes map")
+	assert.True(t, ok, "the node should have master in its nodes map")
 	assert.True(t, node.Id == 1, "the node's id should be set to 1")
 	assert.NotNil(t, master.Message, "the message channel should not be nil")
 
@@ -72,10 +73,10 @@ func TestCreateTwoNodeCluster(t *testing.T) {
 }
 
 func TestCreateMultiNodeCluster(t *testing.T) {
-	master := CreateCluster("localhost:5558")
+	master := CreateCluster("localhost:5558", nil)
 	defer master.Close()
 	time.Sleep(500 * time.Millisecond)
-	node1, err := JoinCluster("localhost:5559", "localhost:5558")
+	node1, err := JoinCluster("localhost:5559", "localhost:5558", nil)
 
 	if err != nil {
 		fmt.Println("couldn't create node 1:", err)
@@ -84,7 +85,7 @@ func TestCreateMultiNodeCluster(t *testing.T) {
 
 	defer node1.Close()
 	time.Sleep(500 * time.Millisecond)
-	node2, err := JoinCluster("localhost:5560", "localhost:5558")
+	node2, err := JoinCluster("localhost:5560", "localhost:5558", nil)
 
 	if err != nil {
 		fmt.Println("couldn't create node 2:", err)

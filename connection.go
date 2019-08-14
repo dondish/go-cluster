@@ -1,3 +1,4 @@
+// TODO Add heartbeat mechanism
 package go_cluster
 
 import (
@@ -8,11 +9,12 @@ import (
 )
 
 // Resembles a connection between two nodes.
-// The API makes it simpler to customize the connection.
 type Connection struct {
-	Conn *net.TCPConn
+	Conn *net.TCPConn // The connection
+	Data interface{}  // The remote node's extra data
 }
 
+// The transport protocol
 type Transport struct {
 	Type    string
 	Message Message
@@ -32,15 +34,17 @@ func connect(address string) (*Connection, error) {
 }
 
 // Connects a node to a new node and sets up message handling
-func connectNewNode(id int, addr string, node *Node) {
+func connectNewNode(id int, addr string, data interface{}, node *Node) {
 	if conn, err := connect(addr); err != nil {
 		node.Log("error while connecting to a new node:", err)
 	} else {
+		conn.Data = data
 		node.Nodes.Store(id, conn)
-		msg := IdReqMessage{Id: node.Id}
+		msg := GreetingMessage{Id: node.Id, Data: data}
 		if err := conn.Write(msg); err != nil {
 			node.Log("couldn't send the message to the new node:", err)
 		}
+		go handleMessages(conn, node, id)
 		node.Log("Successfully connected to the new node!")
 	}
 }
@@ -70,18 +74,19 @@ func handleIncoming(address string, node *Node) {
 			continue
 		}
 		connection := &Connection{Conn: conn}
+		node.Nodes.Store(node.NextId, connection)
 		go handleMessages(connection, node, node.NextId)
-		if err := connection.Write(ReadyMessage{Id: node.NextId}); err != nil {
+		if err := connection.Write(ReadyMessage{Id: node.NextId, EntryId: node.Id}); err != nil {
 			node.Log("failed to send ready message to ", conn.RemoteAddr().String(), ":", err.Error())
 			continue
 		}
-		node.Nodes.Store(node.NextId, connection)
 		node.NextId++
 	}
 }
 
 // Handles the messages incoming from the connection
 func handleMessages(connection *Connection, node *Node, remoteid int) {
+	node.Log("Message handling started with", remoteid, "(note that this might not be the ")
 	conn := connection.Conn
 	dec := gob.NewDecoder(conn)
 	for {
@@ -104,22 +109,36 @@ func handleMessages(connection *Connection, node *Node, remoteid int) {
 				node.Message <- message
 			}
 		} else {
-			if data.Type == "idreq" {
-				remoteid = data.Message.(IdReqMessage).Id
+			if data.Type == "readyreq" {
+				if _, ok := node.Nodes.Load(remoteid); !ok {
+					readymsg := data.Message.(ReadyMessage)
+					node.Id = readymsg.Id
+					remoteid = readymsg.EntryId
+					node.NextId = node.Id + 1
+					if err := connection.Write(IntroduceMessage{Addr: node.Addr, Data: data}); err != nil {
+						node.Log("couldn't send an introduce message to the entry point:", err)
+						os.Exit(1)
+					}
+					node.Nodes.Store(remoteid, connection)
+					node.Log("Node Intialized!")
+				}
+			} else if data.Type == "greetreq" {
+				remoteid = data.Message.(GreetingMessage).Id
 				node.Log("Successfully connected to node", remoteid)
 				node.Nodes.Store(remoteid, connection)
-			} else if data.Type == "addrreq" {
+			} else if data.Type == "introreq" {
 				msg := NewNodeMessage{
 					Id:   remoteid,
-					Addr: data.Message.(AddressMessage).Addr,
+					Addr: data.Message.(IntroduceMessage).Addr,
+					Data: data.Message.(IntroduceMessage).Data,
 				}
 				if err := node.Broadcast(msg, remoteid); err != nil {
 					node.Log("error while broadcasting a new node:", err)
 				}
-			} else if data.Type == "newnode" {
+			} else if data.Type == "newnodereq" {
 				msg := data.Message.(NewNodeMessage)
 				node.NextId = msg.Id + 1
-				connectNewNode(msg.Id, msg.Addr, node)
+				connectNewNode(msg.Id, msg.Addr, msg.Data, node)
 			} else {
 				node.Message <- data.Message
 			}

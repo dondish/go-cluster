@@ -2,7 +2,6 @@ package go_cluster
 
 import (
 	"encoding/gob"
-	"strconv"
 )
 
 // The Message interface, this is supposed to be customized (for example Msg is encoded in gob).
@@ -26,34 +25,37 @@ func (m ErrorMessage) Msg() interface{} {
 
 // The message the master sends to a newly connected node with its id
 type ReadyMessage struct {
-	Id int
+	Id      int
+	EntryId int
 }
 
 func (m ReadyMessage) Msg() interface{} {
-	return strconv.Itoa(m.Id)
+	return m
 }
 
 func (m ReadyMessage) Type() string {
-	return "ready"
+	return "readyreq"
 }
 
 // The message a node sends to the node it's newly connected to with its id to make authentication easier
-type IdReqMessage struct {
-	Id int
+type GreetingMessage struct {
+	Id   int
+	Data interface{}
 }
 
-func (m IdReqMessage) Msg() interface{} {
-	return strconv.Itoa(m.Id)
+func (m GreetingMessage) Msg() interface{} {
+	return m
 }
 
-func (m IdReqMessage) Type() string {
-	return "idreq"
+func (m GreetingMessage) Type() string {
+	return "greetreq"
 }
 
 // The message the master sends when all nodes when a new node joins
 type NewNodeMessage struct {
-	Id   int    // The Id
-	Addr string // The address to connect to
+	Id   int         // The Id
+	Addr string      // The address to connect to
+	Data interface{} // The new node's data
 }
 
 func (m NewNodeMessage) Msg() interface{} {
@@ -61,20 +63,21 @@ func (m NewNodeMessage) Msg() interface{} {
 }
 
 func (m NewNodeMessage) Type() string {
-	return "newnode"
+	return "newnodereq"
 }
 
-// The message a new node sends to the master with the incoming connections address
-type AddressMessage struct {
+// The message a new node sends to the master with its information
+type IntroduceMessage struct {
 	Addr string
+	Data interface{}
 }
 
-func (m AddressMessage) Msg() interface{} {
+func (m IntroduceMessage) Msg() interface{} {
 	return m.Addr
 }
 
-func (m AddressMessage) Type() string {
-	return "addrreq"
+func (m IntroduceMessage) Type() string {
+	return "introreq"
 }
 
 // Register the message type to gob
